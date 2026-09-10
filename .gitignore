@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+campaign_state.db
+
+# Real contact data / recipient lists — never commit real people's names/emails/companies.
+fnal files/
+Coherent Connect Database.xlsx
+Coherent Lead Database.xlsx
+streamlit.log
+
+# Generated newsletter output — regenerable by running the pipeline, not source.
+output/

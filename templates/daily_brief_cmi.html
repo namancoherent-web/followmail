@@ -1,0 +1,359 @@
+{# ============================================================================
+   Coherent Market Insights — Daily Signal Brief (CMI-BRANDED TEMPLATE)
+   Consumes the SAME `brief` dict as daily_brief.html. Only the styling/branding
+   differs, per the CMI brand book: Admiral Blue #002060, Prussian Blue #112A54,
+   Olive Green #70AD47, Obsidian #212529, Pure White; Roboto typeface; tone
+   professional / authoritative / analytical.
+   ============================================================================ #}
+{% macro coherent_take(body_html) %}
+    <div class="take">
+      <div class="tag">
+        <span class="dot"></span> The Coherent Take
+      </div>
+      <p>{{ body_html | safe }}</p>
+    </div>
+{%- endmacro -%}
+{% macro outlook_card(c) %}
+    <div class="prospect">
+      <span class="flag">{{ c.flag }}</span>
+      <h2>{{ c.company_name }}</h2>
+      <p>{{ c.narrative_html | safe }}</p>
+      {% if c.left or c.right %}
+      <div class="grid2">
+        {% if c.left %}<div class="cell"><div class="h">{{ c.left.h }}</div><div class="v">{{ c.left.v }}</div></div>{% endif %}
+        {% if c.right %}<div class="cell"><div class="h">{{ c.right.h }}</div><div class="v">{{ c.right.v }}</div></div>{% endif %}
+      </div>
+      {% endif %}
+      {% if c.action and c.action.v %}
+      <div class="action"><div class="h">{{ c.action.h }}</div><div class="v">{{ c.action.v }}</div></div>
+      {% endif %}
+      {% if c.plan and c.plan.steps %}
+      <ol class="plan">
+        <div class="planh">{{ c.plan.h }}</div>
+        {% for step in c.plan.steps %}<li><b>{{ step.title }}</b> {{ step.body_html | safe }}</li>{% endfor %}
+      </ol>
+      {% endif %}
+    </div>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coherent Market Insights · Daily Signal Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Roboto+Slab:wght@500;700&display=swap" rel="stylesheet">
+{% raw %}<style>
+  :root{
+    --navy:#002060;        /* Admiral Blue  */
+    --prussian:#112A54;    /* Prussian Blue */
+    --green:#70AD47;       /* Olive Green   */
+    --ink:#212529;         /* Obsidian Black*/
+    --paper:#FFFFFF;
+    --bg:#EEF1F6;
+    --muted:#5B6470;
+    --faint:#8A93A3;
+    --hair:#E1E6EF;
+    --hair-dk:#20365f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Roboto",system-ui,-apple-system,sans-serif;
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+    padding:32px 16px 64px;
+  }
+  .sheet{
+    max-width:660px;margin:0 auto;background:var(--paper);
+    border-top:4px solid var(--green);
+    box-shadow:0 1px 0 rgba(0,32,96,.05),0 24px 60px -30px rgba(0,32,96,.35);
+  }
+
+  /* ---------- Masthead (light, navy logo) ---------- */
+  .masthead{background:var(--paper);padding:26px 40px 20px;border-bottom:1px solid var(--hair);}
+  .brandrow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .logo-txt{display:flex;flex-direction:column;line-height:1;}
+  .wordmark{
+    font-family:"Roboto Slab",Georgia,serif;font-weight:700;font-size:23px;
+    letter-spacing:.02em;color:var(--navy);line-height:1;
+  }
+  .subword{
+    font-size:9.5px;font-weight:500;letter-spacing:.42em;color:var(--navy);
+    margin-top:5px;text-transform:uppercase;
+  }
+  .kicker{text-align:right;line-height:1.5;}
+  .kicker .k1{font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--green);}
+  .kicker .k2{display:block;font-size:10px;color:var(--faint);font-weight:500;letter-spacing:.14em;}
+  .tagstrip{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);
+    font-size:12.5px;color:var(--muted);letter-spacing:.02em;font-weight:400;
+  }
+  .tagstrip b{color:var(--navy);font-weight:600;}
+
+  /* ---------- Body ---------- */
+  .body{padding:32px 40px 8px;}
+  .datepill{
+    font-family:"Roboto",monospace;font-size:11px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--green);margin:0 0 16px;
+  }
+  h1.hello{
+    font-family:"Roboto Slab",Georgia,serif;font-weight:700;font-size:27px;line-height:1.15;
+    letter-spacing:-.01em;margin:0 0 12px;color:var(--navy);
+  }
+  .lede{font-size:15px;color:#33383f;margin:0 0 24px;max-width:58ch;}
+  .lede b{color:var(--navy);font-weight:600;}
+
+  /* ---------- Requested-report callout ---------- */
+  .report-callout{background:rgba(0,32,96,.04);border:1px solid var(--hair);border-left:4px solid var(--navy);padding:16px 18px;margin:0 0 22px;}
+  .rc-tag{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:6px;}
+  .rc-name{font-family:"Roboto Slab",Georgia,serif;font-weight:700;font-size:17px;color:var(--navy);margin-bottom:5px;}
+  .rc-obj{font-size:12.5px;color:var(--muted);margin-bottom:11px;}
+  .rc-row{display:flex;align-items:center;gap:14px;}
+  .rc-price{font-size:13px;font-weight:700;color:var(--navy);}
+  .rc-cta{font-size:12.5px;font-weight:600;color:#fff;background:var(--green);text-decoration:none;padding:6px 14px;border-radius:3px;}
+
+  /* ---------- Market name subhead ---------- */
+  .market-name{font-family:"Roboto Slab",Georgia,serif;font-weight:500;font-size:15px;color:var(--green);margin:0 0 14px;}
+
+  /* ---------- Adjacent markets grid (enhanced report tiles) ---------- */
+  .adj-sub{font-size:13px;color:var(--muted);margin:0 0 16px;}
+  .adj-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 8px;}
+  .adj{
+    background:linear-gradient(180deg,rgba(0,32,96,.03),rgba(255,255,255,0));
+    border:1px solid var(--hair);border-top:3px solid var(--green);border-radius:2px;
+    padding:16px 18px 14px;display:flex;flex-direction:column;gap:9px;
+  }
+  .adj-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .adj-name{font-family:"Roboto Slab",Georgia,serif;font-weight:700;font-size:14.5px;color:var(--navy);line-height:1.22;}
+  .adj-metric{
+    flex:0 0 auto;font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:#4d7a2f;background:rgba(112,173,71,.13);border:1px solid rgba(112,173,71,.4);
+    border-radius:999px;padding:3px 9px;white-space:nowrap;margin-top:2px;
+  }
+  .adj-why{font-size:12.5px;color:#3a4048;line-height:1.5;flex:1;}
+  .adj-link{
+    font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);
+    text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding-top:3px;border-top:1px solid var(--hair);
+  }
+  .adj-link .arw{color:var(--green);}
+
+  /* ---------- Top-3 ---------- */
+  .top3{border-top:2px solid var(--navy);margin:0 0 6px;}
+  .top3 .row{display:flex;gap:14px;padding:13px 2px;border-bottom:1px solid var(--hair);align-items:flex-start;}
+  .top3 .idx{
+    flex:0 0 auto;width:22px;height:22px;border-radius:3px;background:var(--navy);color:#fff;
+    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;
+  }
+  .top3 .txt{font-size:14px;color:#2b3037;}
+  .top3 .txt b{color:var(--navy);font-weight:600;}
+  .top3 .cat{
+    display:inline-block;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:#fff;background:var(--navy);border-radius:3px;padding:2px 7px;margin-right:9px;vertical-align:2px;white-space:nowrap;
+  }
+
+  /* ---------- Eyebrow ---------- */
+  .eyebrow{display:flex;align-items:center;gap:12px;margin:42px 0 18px;}
+  .eyebrow .lbl{
+    font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--navy);white-space:nowrap;
+  }
+  .eyebrow .rule{height:2px;background:linear-gradient(90deg,var(--green),var(--hair));flex:1;}
+
+  /* ---------- Provenance ---------- */
+  .prov{
+    display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-top:10px;
+  }
+  .prov .src{color:var(--navy);font-weight:600;}
+  .prov .verified{
+    color:var(--green);display:inline-flex;align-items:center;gap:4px;padding:2px 7px;
+    border:1px solid rgba(112,173,71,.45);border-radius:3px;background:rgba(112,173,71,.09);letter-spacing:.08em;font-weight:600;
+  }
+  .prov .dot{width:3px;height:3px;border-radius:50%;background:var(--faint);}
+
+  /* ---------- Prospect ---------- */
+  .prospect{background:var(--paper);border:1px solid var(--hair);border-left:4px solid var(--green);padding:22px 24px;}
+  .flag{
+    display:inline-block;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:#fff;background:var(--navy);padding:4px 10px;border-radius:3px;margin-bottom:13px;
+  }
+  .prospect h2{font-family:"Roboto Slab",Georgia,serif;font-weight:700;font-size:24px;margin:0 0 10px;color:var(--navy);letter-spacing:-.01em;}
+  .prospect p{font-size:14px;color:#33383f;margin:0 0 16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);border:1px solid var(--hair);margin:16px 0;}
+  .grid2 .cell{background:var(--paper);padding:13px 15px;}
+  .grid2 .cell .h{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:5px;}
+  .grid2 .cell .v{font-size:13px;color:var(--ink);line-height:1.45;}
+  .action{background:rgba(112,173,71,.08);border:1px solid rgba(112,173,71,.28);border-left:3px solid var(--green);padding:13px 16px;margin:4px 0 18px;}
+  .action .h{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#4d7a2f;margin-bottom:5px;}
+  .action .v{font-size:13px;color:#2b3520;}
+  .plan{margin:0;padding:0;list-style:none;counter-reset:step;}
+  .plan .planh{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--navy);margin-bottom:12px;}
+  .plan li{counter-increment:step;position:relative;padding:0 0 13px 40px;font-size:13px;color:#33383f;}
+  .plan li::before{
+    content:counter(step);position:absolute;left:0;top:-2px;width:26px;height:26px;border-radius:3px;
+    background:var(--navy);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  }
+  .plan li b{color:var(--navy);font-weight:600;}
+
+  /* ---------- Story ---------- */
+  .story{padding:6px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:18px;}
+  .story:last-of-type{border-bottom:none;}
+  .story h3{font-family:"Roboto Slab",Georgia,serif;font-weight:500;font-size:18.5px;line-height:1.25;margin:0 0 9px;color:var(--navy);}
+  .story p{font-size:14px;color:#33383f;margin:0;}
+  .story p b{color:var(--navy);font-weight:600;}
+
+  /* ---------- The Coherent Take (navy authority block) ---------- */
+  .take{background:var(--navy);color:#DDE4F0;padding:22px 26px;margin:8px 0 6px;border-left:4px solid var(--green);}
+  .take .tag{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--green);margin:0 0 12px;display:flex;align-items:center;gap:9px;}
+  .take .tag .dot{width:8px;height:8px;background:var(--green);border-radius:2px;transform:rotate(45deg);display:inline-block;}
+  .take p{font-size:14px;line-height:1.62;margin:0;color:#D5DDEC;}
+  .take p b{color:#fff;font-weight:600;}
+  .take .accent{color:var(--green);font-weight:600;}
+
+  /* ---------- Moves ---------- */
+  .move{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--hair);}
+  .move:last-child{border-bottom:none;}
+  .move .em{font-size:20px;line-height:1.2;flex:0 0 auto;width:34px;height:34px;border-radius:4px;background:rgba(0,32,96,.06);display:flex;align-items:center;justify-content:center;}
+  .move .mc h4{font-weight:700;font-size:14.5px;margin:0 0 5px;color:var(--navy);}
+  .move .mc p{font-size:13px;color:#3a4048;margin:0;}
+
+  /* ---------- Footer ---------- */
+  .foot{background:var(--navy);color:#B9C4DA;padding:30px 40px 32px;margin-top:38px;text-align:center;}
+  .foot .fmark{margin-bottom:12px;font-family:"Roboto Slab",serif;font-weight:700;font-size:17px;color:#fff;letter-spacing:.03em;}
+  .foot .fmark small{display:block;font-family:"Roboto",sans-serif;font-weight:500;font-size:9px;letter-spacing:.4em;color:var(--green);margin-top:4px;}
+  .foot .assembled{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8FA0C0;margin:14px 0 16px;}
+  .cta{display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:700;font-size:13.5px;letter-spacing:.02em;padding:12px 28px;border-radius:4px;}
+  .foot .sign{margin:18px 0 0;font-size:13px;color:#DDE4F0;font-style:italic;}
+  .foot .meta{margin:6px 0 0;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#7C8CAC;}
+  .foot a.unsub{color:#7C8CAC;text-decoration:underline;}
+
+  @media (max-width:560px){
+    body{padding:16px 8px 40px;}
+    .masthead,.body,.foot{padding-left:22px;padding-right:22px;}
+    h1.hello{font-size:23px;}
+    .grid2,.adj-grid{grid-template-columns:1fr;}
+    .prospect{padding:18px 16px;}
+  }
+</style>{% endraw %}
+</head>
+<body>
+<div class="sheet">
+
+  {# ---------- CMI globe wordmark ---------- #}
+  <header class="masthead">
+    <div class="brandrow">
+      <div class="brand">
+        <svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true">
+          <defs><clipPath id="cmiGlobe"><circle cx="21" cy="21" r="18"/></clipPath></defs>
+          <g clip-path="url(#cmiGlobe)">
+            <rect x="17" y="4"  width="9" height="9" transform="rotate(45 21.5 8.5)"  fill="#002060"/>
+            <rect x="7"  y="12" width="9" height="9" transform="rotate(45 11.5 16.5)" fill="#70AD47"/>
+            <rect x="27" y="12" width="9" height="9" transform="rotate(45 31.5 16.5)" fill="#C0398B"/>
+            <rect x="17" y="16" width="10" height="10" transform="rotate(45 22 21)"   fill="#112A54"/>
+            <rect x="7"  y="24" width="9" height="9" transform="rotate(45 11.5 28.5)" fill="#C0398B"/>
+            <rect x="27" y="24" width="9" height="9" transform="rotate(45 31.5 28.5)" fill="#70AD47"/>
+            <rect x="17" y="30" width="9" height="9" transform="rotate(45 21.5 34.5)" fill="#002060"/>
+          </g>
+          <circle cx="21" cy="21" r="18" fill="none" stroke="#002060" stroke-width="1.6"/>
+        </svg>
+        <div class="logo-txt">
+          <span class="wordmark">COHERENT</span>
+          <span class="subword">Market&nbsp;Insights</span>
+        </div>
+      </div>
+      <div class="kicker">
+        <span class="k1">{{ brand.issue_label | default('Daily Signal Brief') }}</span>
+        <span class="k2">Issue · {{ brand.issue_date }}</span>
+      </div>
+    </div>
+    <div class="tagstrip"><b>360° market intelligence</b> — companies moving in your coverage, verified overnight.</div>
+  </header>
+
+  <main class="body">
+    <p class="datepill">{{ meta.date_pill }}</p>
+    <h1 class="hello">Hello, {{ recipient.first_name }}.</h1>
+    <p class="lede">{{ intro.lede_html | safe }}</p>
+
+    {# Requested-report callout — the inbound hook #}
+    {% if requested_report and requested_report.name %}
+    <div class="report-callout">
+      <div class="rc-tag">Your requested report</div>
+      <div class="rc-name">{{ requested_report.name }}</div>
+      {% if requested_report.objective %}<div class="rc-obj">Objective: {{ requested_report.objective }}</div>{% endif %}
+      <div class="rc-row">
+        {% if requested_report.price %}<span class="rc-price">{{ requested_report.price }}</span>{% endif %}
+        <a class="rc-cta" href="{{ requested_report.link }}">View report →</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if top3 %}
+    <div class="top3">
+      {% for item in top3 %}
+      <div class="row"><div class="idx">{{ loop.index }}</div><div class="txt">{% if item.category %}<span class="cat">{{ item.category }}</span>{% endif %}{{ item.html | safe }}</div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# 1 · WHAT'S HAPPENING IN YOUR MARKET #}
+    {% if your_market and your_market.stories %}
+    <div class="eyebrow"><span class="lbl">What's Happening in Your Market</span><span class="rule"></span></div>
+    <div class="market-name">{{ your_market.market_name }}</div>
+    {% for story in your_market.stories %}
+    <div class="story">
+      <h3>{{ story.headline }}</h3>
+      <p>{{ story.body_html | safe }}</p>
+      <div class="prov"><span class="verified">CMI Intelligence</span><span class="dot"></span><span>as of {{ story.date }}</span></div>
+    </div>
+    {% endfor %}
+    {% if your_market.take %}{{ coherent_take(your_market.take.body_html) }}{% endif %}
+    {% endif %}
+
+    {# 2 · OTHER MARKETS THAT MIGHT INTEREST YOU #}
+    {% if adjacent_markets and adjacent_markets.entries %}
+    <div class="eyebrow"><span class="lbl">Other Markets That Might Interest You</span><span class="rule"></span></div>
+    <p class="adj-sub">Related coverage from Coherent Market Insights that complements your {{ your_market.market_name if your_market else 'focus' }} strategy.</p>
+    <div class="adj-grid">
+      {% for m in adjacent_markets.entries %}
+      <div class="adj">
+        <div class="adj-head">
+          <span class="adj-name">{{ m.market_name }}</span>
+          {% if m.growth_tag %}<span class="adj-metric">{{ m.growth_tag }}</span>{% endif %}
+        </div>
+        <div class="adj-why">{{ m.why_relevant }}</div>
+        <a class="adj-link" href="{{ requested_report.link if requested_report else '#' }}">Explore CMI coverage <span class="arw">→</span></a>
+      </div>
+      {% endfor %}
+    </div>
+    {% if adjacent_markets.take %}{{ coherent_take(adjacent_markets.take.body_html) }}{% endif %}
+    {% endif %}
+
+    {# 3 · WHAT YOUR COMPETITORS ARE UP TO #}
+    {% if competitor_watch and competitor_watch.stories %}
+    <div class="eyebrow"><span class="lbl">What Your Competitors Are Up To</span><span class="rule"></span></div>
+    {% if competitor_watch.company %}<div class="market-name">Tracking rivals of {{ competitor_watch.company }}</div>{% endif %}
+    {% for story in competitor_watch.stories %}
+    <div class="story">
+      <h3>{{ story.headline }}</h3>
+      <p>{{ story.body_html | safe }}</p>
+      <div class="prov"><span class="verified">CMI Intelligence</span><span class="dot"></span><span>as of {{ story.date }}</span></div>
+    </div>
+    {% endfor %}
+    {% if competitor_watch.take %}{{ coherent_take(competitor_watch.take.body_html) }}{% endif %}
+    {% endif %}
+  </main>
+
+  <footer class="foot">
+    <div class="fmark">COHERENT MARKET INSIGHTS<small>MARKET INSIGHTS</small></div>
+    {% if footer.report_name %}<p class="assembled">Ready for the full picture on {{ footer.report_name }}?</p>{% endif %}
+    <a class="cta" href="{{ footer.cta_url }}">{{ footer.cta_text | default('Get the full report →') }}</a>
+    <p class="sign">Empowering businesses with data and analytics.</p>
+    <p class="meta">Coherent Market Insights · 360° market research across 26+ industries · <a class="unsub" href="{{ footer.unsubscribe_url | default('#') }}">Unsubscribe</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

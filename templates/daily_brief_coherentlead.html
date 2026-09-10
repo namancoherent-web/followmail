@@ -1,0 +1,436 @@
+{# ============================================================================
+   CoherentLead · Daily Brief — REUSABLE NEWSLETTER TEMPLATE (Jinja2)
+   ----------------------------------------------------------------------------
+   Reconstructed from two static renders (output/daily_brief_coherentlead_20260907.html,
+   output/daily_brief_covvalent_20260907.html) whose template source was missing from
+   templates/. Consumes the SAME `brief` dict shape as daily_brief.html (built by
+   brief_builder.build_brief) — only brand constants, section selection and the static
+   "Inside CoherentLead" showcase differ. No new Python builder needed.
+
+   DATA CONTRACT — see daily_brief.html for the full field-by-field contract; this
+   template only reads a subset:
+     brand.issue_date, brand.tagline
+     recipient.first_name
+     meta.date_pill
+     intro.lede_html
+     potential_customers[]  → rendered as "Ideal Customers" (same card shape as
+                               daily_brief.html's outlook_card: flag, company_name,
+                               narrative_html, left{h,v}, right{h,v}, action{h,v})
+     footer.cta_url, footer.site_url
+
+   industry_outlook / top3 / *_plan are intentionally NOT rendered — the CoherentLead
+   brief (per both reference renders) is two Ideal Customer cards + the static product
+   showcase, nothing else.
+   ============================================================================ #}
+{% macro ideal_customer_card(c) %}
+    <div class="prospect">
+      <span class="flag">● {{ c.flag }}</span>
+      <h2>{{ c.company_name }}</h2>
+      <p>{{ c.narrative_html | safe }}</p>
+      {% if c.left or c.right %}
+      <div class="grid2">
+        {% if c.left %}<div class="cell"><div class="h">{{ c.left.h }}</div><div class="v">{{ c.left.v }}</div></div>{% endif %}
+        {% if c.right %}<div class="cell"><div class="h">{{ c.right.h }}</div><div class="v">{{ c.right.v }}</div></div>{% endif %}
+      </div>
+      {% endif %}
+      {% if c.action and c.action.v %}
+      <div class="action"><div class="h">{{ c.action.h }}</div><div class="v">{{ c.action.v }}</div></div>
+      {% endif %}
+    </div>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoherentLead · Daily Brief — {{ recipient.first_name }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% raw %}<style>
+  :root{
+    --ink:#1A1410;          /* Obsidian Black */
+    --ember:#D2541C;        /* Ember Red       */
+    --snow:#FFFCF6;         /* Snow White      */
+    --paper:#FFFFFF;
+    --outer:#F0EAE0;
+    --muted:#6E6459;
+    --faint:#A39A8C;
+    --hair:#E7DFD1;
+    --hair-dk:#332B23;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--outer);
+    color:var(--ink);
+    font-family:"Bricolage Grotesque",system-ui,-apple-system,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    padding:32px 16px 64px;
+  }
+  .sheet{
+    max-width:660px;
+    margin:0 auto;
+    background:var(--snow);
+    box-shadow:0 1px 0 rgba(26,20,16,.04),0 24px 60px -28px rgba(26,20,16,.30);
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .sheet{animation:rise .6s cubic-bezier(.2,.7,.2,1) both;}
+    @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead{
+    background:var(--ink);
+    color:var(--snow);
+    padding:26px 40px 24px;
+  }
+  .brandrow{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .brand{display:flex;align-items:center;gap:13px;}
+  .mark{flex:0 0 auto;}
+  .wordmark{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:700;
+    font-size:24px;letter-spacing:-.01em;line-height:1;color:#fff;
+  }
+  .wordmark .cx{color:var(--ember);}
+  .kicker{
+    font-size:10.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ember);text-align:right;line-height:1.5;
+  }
+  .kicker small{display:block;color:var(--faint);font-weight:500;letter-spacing:.18em;}
+  .tagstrip{
+    margin-top:20px;padding-top:16px;border-top:1px solid var(--hair-dk);
+    font-family:"Bricolage Grotesque",sans-serif;font-style:italic;font-weight:500;
+    font-size:15px;color:#D8D0C2;letter-spacing:.01em;
+  }
+
+  /* ---------- Body shell ---------- */
+  .body{padding:34px 40px 8px;}
+  .datepill{
+    font-family:"DM Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ember);margin:0 0 18px;
+  }
+  h1.hello{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+    font-size:30px;line-height:1.12;letter-spacing:-.015em;margin:0 0 12px;
+  }
+  .lede{font-size:15.5px;color:#3D362E;margin:0 0 12px;max-width:56ch;}
+  .lede b{color:var(--ink);font-weight:600;}
+  .agentline{
+    font-size:17px;font-weight:600;line-height:1.4;color:var(--ink);margin:0 0 26px;
+    padding-left:13px;border-left:3px solid var(--ember);
+  }
+  .agentline b{color:var(--ink);font-weight:600;}
+  .agentline b.cc{color:var(--ember);font-weight:800;}
+
+  /* ---------- Section eyebrow ---------- */
+  .eyebrow{
+    display:flex;align-items:center;gap:12px;
+    margin:44px 0 18px;
+  }
+  .eyebrow .lbl{
+    font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ember);
+    white-space:nowrap;
+  }
+  .eyebrow .rule{height:1px;background:var(--hair);flex:1;}
+
+  /* ---------- Prospect card ---------- */
+  .prospect{
+    background:var(--paper);border:1px solid var(--hair);
+    border-left:3px solid var(--ember);
+    padding:24px 26px;
+  }
+  .prospect + .prospect{margin-top:20px;}
+  .flag{
+    display:inline-block;font-family:"DM Mono",monospace;font-size:10px;font-weight:500;
+    letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--ember);
+    padding:4px 9px;border-radius:3px;margin-bottom:14px;
+  }
+  .prospect h2{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:26px;
+    margin:0 0 10px;letter-spacing:-.015em;
+  }
+  .prospect p{font-size:14.5px;color:#3A332B;margin:0 0 16px;}
+  .grid2{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);
+    border:1px solid var(--hair);margin:18px 0;
+  }
+  .grid2 .cell{background:var(--paper);padding:13px 15px;}
+  .grid2 .cell .h{
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ember);margin-bottom:5px;
+  }
+  .grid2 .cell .v{font-size:13.5px;color:var(--ink);line-height:1.45;}
+  .action{
+    background:rgba(26,20,16,.04);border:1px solid var(--hair);
+    padding:14px 16px;margin:4px 0 20px;
+  }
+  .action .h{
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink);margin-bottom:5px;
+  }
+  .action .v{font-size:13.5px;color:#2A241E;}
+
+  /* ---------- Per-section CTA line ---------- */
+  .seccta{
+    margin:22px 0 0;padding:18px 20px;background:var(--paper);border:1px solid var(--hair);
+    font-size:15px;font-weight:600;color:var(--ink);text-align:center;line-height:1.5;
+  }
+  .seccta a{
+    display:inline-block;margin-left:10px;background:var(--ember);color:#fff;text-decoration:none;
+    font-weight:700;font-size:14px;letter-spacing:.02em;padding:10px 22px;border-radius:4px;
+    white-space:nowrap;
+  }
+
+  /* ---------- Inside CoherentLead (pitch + stat panel + feature table) ---------- */
+  .caps{
+    background:var(--ink);color:#E9E3D8;
+    padding:34px 34px 28px;margin:8px 0 6px;border-radius:14px;
+  }
+  .caps h3{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:25px;
+    line-height:1.25;margin:0 0 10px;color:#fff;letter-spacing:-.015em;
+  }
+  .caps h3 em{color:var(--ember);font-style:italic;}
+  .caps .capsub{font-size:13.5px;line-height:1.6;color:#B3A999;margin:0;max-width:54ch;}
+  .caps .capsub b{color:var(--ember);font-weight:800;}
+
+  .capgrid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:26px 20px;
+    margin-top:28px;padding-top:28px;border-top:1px solid var(--hair-dk);
+  }
+  .cap .n{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+    font-size:30px;line-height:1;color:#fff;letter-spacing:-.015em;
+  }
+  .cap .n .sfx{font-size:16px;letter-spacing:.01em;margin-left:1px;}
+  .cap .l{font-size:11.5px;line-height:1.4;color:#948A7A;margin-top:9px;}
+
+  /* Feature/benefit table — same dark panel, tabular rows instead of tiles */
+  .featable{
+    margin-top:28px;padding-top:28px;border-top:1px solid var(--hair-dk);
+  }
+  .featable .frow{
+    display:grid;grid-template-columns:170px 1fr;gap:20px;
+    padding:16px 0;border-bottom:1px solid var(--hair-dk);
+    align-items:baseline;
+  }
+  .featable .frow:last-child{border-bottom:none;}
+  .featable .fk{
+    font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ember);line-height:1.5;
+  }
+  .featable .fv{font-size:13.5px;line-height:1.6;color:#CFC6B7;}
+  .featable .fv b{color:#fff;font-weight:600;}
+
+  .capcards{
+    display:grid;grid-template-columns:1fr 1fr;gap:26px 26px;
+    margin-top:28px;padding-top:28px;border-top:1px solid var(--hair-dk);
+  }
+  .capcard .cl{
+    font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ember);margin-bottom:9px;
+  }
+  .capcard h4{
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:14px;line-height:1.35;
+    margin:0 0 7px;color:#fff;letter-spacing:-.01em;
+  }
+  .capcard p{font-size:12.5px;line-height:1.6;margin:0;color:#948A7A;}
+  .capcard p + p{margin-top:10px;}
+  .capcard p b{color:#CFC6B7;font-weight:600;}
+  .capcard.wide{grid-column:1 / -1;padding-top:22px;border-top:1px solid var(--hair-dk);}
+  .capcard.wide h4{font-size:16px;}
+  .capcard.wide p{max-width:60ch;}
+
+  /* ---------- Footer ---------- */
+  .foot{
+    background:var(--ink);color:#D8D0C2;padding:30px 40px 34px;margin-top:40px;text-align:center;
+  }
+  .foot .fmark{margin-bottom:14px;display:flex;justify-content:center;}
+  .foot .assembled{
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 16px;
+  }
+  .ctarow{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;}
+  .cta{
+    display:inline-block;background:var(--ember);color:#fff;text-decoration:none;
+    font-weight:700;font-size:14px;letter-spacing:.02em;padding:12px 26px;border-radius:4px;
+  }
+  .cta2{
+    display:inline-block;background:transparent;color:#E9E3D8;text-decoration:none;
+    font-weight:700;font-size:14px;letter-spacing:.02em;padding:11px 24px;border-radius:4px;
+    border:1px solid rgba(233,227,216,.28);
+  }
+  .foot .sign{
+    margin:20px 0 0;font-family:"Bricolage Grotesque",sans-serif;font-style:italic;font-weight:500;font-size:14px;color:#E9E3D8;
+  }
+  .foot .meta{
+    margin:6px 0 0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  }
+  .foot a.unsub{color:var(--faint);text-decoration:underline;}
+
+  @media (max-width:560px){
+    body{padding:16px 8px 40px;}
+    .masthead,.body,.foot{padding-left:22px;padding-right:22px;}
+    h1.hello{font-size:25px;}
+    .grid2{grid-template-columns:1fr;}
+    .prospect{padding:20px 18px;}
+    .caps{padding:26px 20px 22px;}
+    .caps h3{font-size:21px;}
+    .capgrid{grid-template-columns:1fr 1fr;gap:22px 16px;}
+    .cap .n{font-size:26px;}
+    .cap .n .sfx{font-size:15px;}
+    .capcards{grid-template-columns:1fr;gap:22px;}
+    .featable .frow{grid-template-columns:1fr;gap:6px;}
+    .seccta{font-size:14px;padding:16px;}
+    .seccta a{display:block;margin:14px 0 0;}
+  }
+</style>{% endraw %}
+</head>
+<body>
+<div class="sheet">
+
+  {# ================= MASTHEAD ================= #}
+  <header class="masthead">
+    <div class="brandrow">
+      <div class="brand">
+        <img class="mark" src="../assets/cl-logo.png" width="34" height="34" alt="CoherentLead">
+        <span class="wordmark">Coherent<span class="cx">Lead</span></span>
+      </div>
+      <div class="kicker">Daily Brief<small>Issue · {{ brand.issue_date }}</small></div>
+    </div>
+    <div class="tagstrip">{{ brand.tagline | default('Transform outbound sales into a precision-driven process.') }}</div>
+  </header>
+
+  {# ================= INTRO ================= #}
+  <main class="body">
+    <p class="datepill">{{ meta.date_pill }}</p>
+    <h1 class="hello">Good morning, {{ recipient.first_name }}.</h1>
+    <p class="lede">{{ intro.lede_html | safe }}</p>
+    <p class="agentline"><b class="cc">CoherentLead</b> is your <b>AI-Powered B2B Customer Discovery &amp; Outbound Sales</b> tool.</p>
+
+    {# ================= IDEAL CUSTOMERS (two cards, one section) =================
+       Reuses brief_builder.build_customers' output verbatim — same card shape as
+       daily_brief.html's potential_customers, just re-labelled "Ideal Customers". #}
+    {% if potential_customers %}
+    <div class="eyebrow"><span class="lbl">Ideal Customers</span><span class="rule"></span></div>
+    {% for c in potential_customers %}
+    {{ ideal_customer_card(c) }}
+    {% endfor %}
+    <p class="seccta">Want prospects like these discovered, verified and reached automatically? <a href="{{ footer.cta_url }}" target="_blank" rel="noopener noreferrer">Book a demo →</a></p>
+    {% endif %}
+
+    {# ================= INSIDE COHERENTLEAD =================
+       STATIC product pitch — same copy every issue, no LLM slots, nothing to pass in.
+       Figures/features are approved marketing claims about the CoherentLead platform,
+       not about this repo's brief pipeline. Change them only alongside marketing. #}
+    <div class="eyebrow"><span class="lbl">Inside CoherentLead</span><span class="rule"></span></div>
+
+    <div class="caps">
+      <h3>Cheaper, smarter, and more reliable than the <em>alternatives</em>.</h3>
+      <p class="capsub"><b>3,500 credits for $49 vs. Apollo's $65 for 2,500 credits</b> — with credits only charged for successful deliveries, weekly data refreshes, and LinkedIn scraping access included.</p>
+
+      <div class="capgrid">
+        <div class="cap">
+          <div class="n">3,500</div>
+          <div class="l">Credits for $49</div>
+        </div>
+        <div class="cap">
+          <div class="n">250<span class="sfx">M+</span></div>
+          <div class="l">Contacts in the database</div>
+        </div>
+        <div class="cap">
+          <div class="n">40<span class="sfx">M+</span></div>
+          <div class="l">Companies enriched</div>
+        </div>
+        <div class="cap">
+          <div class="n">90<span class="sfx">%</span></div>
+          <div class="l">Email deliverability ratio</div>
+        </div>
+      </div>
+
+      <div class="featable">
+        <div class="frow">
+          <div class="fk">Multichannel Outreach</div>
+          <div class="fv">Reach prospects on <b>email and LinkedIn</b> from one platform — meet buyers on the channel they actually respond on.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">AI Builder</div>
+          <div class="fv">Enter your business in plain English — <b>AI crafts sales strategies</b>, identifies industries, and sets filters for high-fit prospects. No sales expertise required.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">Data Scale</div>
+          <div class="fv"><b>250M+ contacts, 40M+ companies</b> — clean enrichment for better targeting, personalization, and CRM integration.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">Auto Sequencing</div>
+          <div class="fv"><b>Automated, multi-step follow-up sequences</b> that adapt to replies — no manual chasing, no dropped threads.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">Email Verification</div>
+          <div class="fv"><b>Qualify inbound leads and emails in seconds</b> with a 7-layer validation engine, so your team only works contacts that will actually land.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">Warm Up</div>
+          <div class="fv">Continuously warms your email inbox to ensure a <b>90% deliverability ratio</b> — no cold-sending penalty.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">LinkedIn Imports</div>
+          <div class="fv"><b>Import your LinkedIn prospects directly</b> into the platform and enrich them within seconds.</div>
+        </div>
+        <div class="frow">
+          <div class="fk">Deal Execution</div>
+          <div class="fv"><b>Conversation insights and dashboards</b> for team coaching and performance tracking.</div>
+        </div>
+      </div>
+
+      <div class="capcards">
+        <div class="capcard">
+          <div class="cl">Discovery</div>
+          <h4>Describe your business, get your target list</h4>
+          <p>No SDR, no sales consultant, no manual list-building. Tell the AI Builder who you sell to <b>in plain English</b> and it sets the filters, finds the industries, and surfaces high-fit prospects on its own.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Enrichment</div>
+          <h4>Clean data at a scale you can't build in-house</h4>
+          <p>250M+ contacts and 40M+ companies, refreshed weekly. Every record is <b>enrichment-ready for your CRM</b> — no stale titles, no dead emails, no manual cleanup.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Deliverability</div>
+          <h4>Inbox warm-up built in, not bolted on</h4>
+          <p>Continuous warm-up keeps your sending domain healthy, holding a <b>90% deliverability ratio</b> so bulk outbound doesn't torch your inbox reputation.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Cost</div>
+          <h4>Pay for delivery, not for tries</h4>
+          <p><b>3,500 credits for $49</b> vs. Apollo's $65 for 2,500 — and credits are only spent on <b>successful deliveries</b>, not failed sends.</p>
+        </div>
+        <div class="capcard wide">
+          <div class="cl">Outcome</div>
+          <h4>One workspace, from first contact to closed deal</h4>
+          <p>Discovery, verification, warm-up, multichannel outreach &mdash; email, LinkedIn &mdash; and deal-stage coaching dashboards in a single unified workspace — <b>your whole outbound motion, run by one system</b> instead of five disconnected tools.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  {# ================= FOOTER ================= #}
+  <footer class="foot">
+    <div class="fmark">
+      <img src="../assets/cl-logo.png" width="30" height="30" alt="CoherentLead">
+    </div>
+    <p class="assembled">{{ footer.assembled_note | default('Assembled &amp; verified by CoherentLead') | safe }}</p>
+
+    <div class="ctarow">
+      <a class="cta" href="{{ footer.cta_url }}" target="_blank" rel="noopener noreferrer">{{ footer.cta_text | default('Book a Demo →') }}</a>
+      {% if footer.site_url %}<a class="cta2" href="{{ footer.site_url }}" target="_blank" rel="noopener noreferrer">{{ footer.site_text | default('Visit the Site →') }}</a>{% endif %}
+    </div>
+    <p class="sign">{{ footer.tagline | default(brand.tagline) | default('Transform outbound sales into a precision-driven process.') }}</p>
+    <p class="meta">{{ footer.subline | default('Your AI-powered prospecting &amp; sales intelligence platform') | safe }} · <a class="unsub" href="{{ footer.unsubscribe_url | default('#') }}">Unsubscribe</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

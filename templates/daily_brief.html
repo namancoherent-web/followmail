@@ -1,0 +1,706 @@
+{# ============================================================================
+   CoherentConnect · Daily Signal Brief — REUSABLE NEWSLETTER TEMPLATE (Jinja2)
+   ----------------------------------------------------------------------------
+   This is a tokenized version of coherentconnect_daily_brief_CMI.html. The
+   original design is preserved verbatim; every piece of content is now a slot.
+   Render it from the backend with:
+
+       from jinja2 import Environment, FileSystemLoader
+       html = env.get_template("coherentconnect_daily_brief_TEMPLATE.html").render(brief)
+
+   where `brief` matches the DATA CONTRACT below.
+
+   ============================================================================
+   DATA CONTRACT  (the `brief` dict)  →  PIPELINE SOURCE
+   ============================================================================
+   brief = {
+     "brand": {                         # STATIC — repo constants
+        "wordmark":       "CoherentConnect",
+        "issue_label":    "Daily Signal Brief",
+        "issue_date":     "08 Jul 2026",          # short, for masthead kicker
+        "tagline":        "Sales intelligence, made coherent.",
+     },
+     "recipient": {
+        "first_name":     "Raj",                  # ← UserProfile.user_name (first token)
+     },
+     "meta": {
+        "date_pill":      "Wednesday, July 8, 2026",   # ← run completed_at, formatted
+     },
+     "intro": {
+        # One LLM sentence summarizing the run. Inputs: UserProfile.target_industries,
+        # count of verified signals, the 3 signal archetypes. Prompt = "run recap".
+        # ← summarize(PipelineRun) over top Trends/Leads. May contain <b>…</b>.
+        "lede_html": "CoherentConnect watched your live source graph across "
+                     "<b>healthcare, chemicals, ICT and telecom</b> overnight. …",
+     },
+     # Top-3 attention list — rank Leads by confidence / Trends by severity+trend_score, take 3.
+     "top3": [
+        { "html": "<b>Celea Therapeutics banks a ~$180M debut round</b> …" },   # ← Lead / Trend headline
+        # …exactly 3 rows
+     ],
+     # TODAY'S TOP PROSPECT — the single highest-confidence Lead + its deep-research brief.
+     "top_prospect": {                            # OPTIONAL: omit/null → whole section hidden
+        "trigger_label":   "Live Trigger · Healthcare",   # ← Lead.trigger_type + industry
+        "company_name":    "Celea Therapeutics",          # ← Lead.company_name
+        # ← free_deep_research sales brief narrative + Lead.company_news / buying_signals. <b> ok.
+        "narrative_html":  "Celea — the PureTech-founded … <b>$180 million</b> …",
+        "why_now":         "Debut round closed this week …",   # ← lead_enricher.why_now / Lead.trigger_event
+        "who_to_target":   "Head of Corporate Development, VP of Strategy …",  # ← Lead.target_roles / icp_personas
+        "recommended_action": "Send a same-day, research-led email leading with …",  # ← pitch_synthesizer.pitch_angle
+        # ← email/brain.py strategy inference (inferred_initiatives) → 3 steps. Each: {title, body_html}
+        "approach_plan": [
+           { "title": "Open with fit, not introductions.", "body_html": "Lead with CMI's fibrosis …" },
+           # …typically 3
+        ],
+     },
+     # INDUSTRY NEWS · LAST 48H — collector Articles clustered by trend_discoverer, 1-line LLM synthesis each.
+     "industry_news": [                           # OPTIONAL: empty → section hidden
+        {
+          "headline":  "AI agents move into the core of market research",   # ← Trend.title / Article headline
+          "body_html": "On the July 1 edition of Greenbook's <i>The Exchange</i> …",  # ← LLM synthesis of Article.content
+          "source":    "Greenbook · The Exchange",   # ← Article.source
+          "date":      "Jul 1",                       # ← Article.published_at
+          "verified":  true,                          # ← True when Article.url is real/fingerprinted → "✓ Source-traced"
+        },
+     ],
+     # THE COHERENT TAKE (editorial). NEW LLM prompt over impacts_enrichment / causal_chain.
+     "take_after_news":        { "body_html": "Three signals, one throughline …" },  # OPTIONAL
+     "take_after_competitors": { "body_html": "Grand View, MarketsandMarkets …" },   # OPTIONAL
+     # WHAT COMPETITORS ARE UP TO — news scoped to UserProfile competitor names (needs profile.competitors).
+     "competitors": [                             # OPTIONAL: empty → section hidden
+        { "headline": "…", "body_html": "…", "source": "Martal Group", "date": "Jul 1", "verified": true },
+     ],
+     # INSIDE COHERENTCONNECT — no slots. The capability showcase is hardcoded in the
+     # template (static product copy, identical every issue). Nothing to pass.
+     "footer": {                                  # mostly STATIC
+        "assembled_note": "Assembled &amp; verified by CoherentConnect",
+        "cta_text":       "Book a Demo →",
+        "cta_url":        "https://…",          # primary button (filled clay)
+        "site_text":      "Visit the Site →",   # OPTIONAL: secondary button (outlined);
+        "site_url":       "https://…",          #   omit site_url → button hidden
+        "tagline":        "Sales intelligence, made coherent.",
+        "subline":        "Your autonomous sales intelligence agent",
+        "unsubscribe_url":"https://…/unsubscribe?u=…",
+     },
+   }
+
+   ESCAPING RULE (important — two kinds of slot):
+     • Slots whose key ends in `_html` (lede_html, narrative_html, body_html,
+       top3[].html, approach_plan[].body_html) may contain inline <b>/<i>/<em>/
+       <strong>/<a> and are rendered with `| safe`. Everything the LLM emits into
+       these MUST be sanitized upstream (allow-list those tags only) to avoid
+       injection — treat as trusted-after-sanitization, like Lead.email_body today.
+     • EVERY other string slot (headline, source, date, why_now, who_to_target,
+       recommended_action, approach_plan[].title, company_name,
+       trigger_label, footer.*) is PLAIN TEXT. Jinja autoescapes it, so pass literal
+       characters — write "healthcare & AI", NOT the pre-encoded "healthcare &amp; AI"
+       (pre-encoding a plain slot double-escapes to "&amp;amp;").
+   ============================================================================ #}
+{#- ---------------------------------------------------------------------------
+   REUSABLE MACRO — "The Coherent Take" editorial block. Defined first so it is
+   available at every call site below. Pass sanitized body HTML (may contain
+   <b>, <span class="accent">…</span>).
+   --------------------------------------------------------------------------- -#}
+{% macro coherent_take(body_html) %}
+    <div class="take">
+      <div class="tag">
+        <svg width="16" height="19" viewBox="0 0 34 40" fill="none" aria-hidden="true">
+          <path d="M23 3 L7 20 L23 20" stroke="#AD7145" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M11 20 L27 20 L11 37" stroke="#8f8a7e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        The Coherent Take
+      </div>
+      <p>{{ body_html | safe }}</p>
+    </div>
+{%- endmacro -%}
+{#- ---------------------------------------------------------------------------
+   REUSABLE MACRO — the per-section CTA line that closes each outlook block.
+   `prompt` is the section-specific question (plain text); `url` is footer.cta_url.
+   Context is NOT passed to macros, so the url must be handed in at every call.
+   --------------------------------------------------------------------------- -#}
+{% macro section_cta(prompt, url) %}
+    <p class="seccta">{{ prompt }} <a href="{{ url }}" target="_blank" rel="noopener noreferrer">Book a demo →</a></p>
+{%- endmacro -%}
+{#- ---------------------------------------------------------------------------
+   REUSABLE MACRO — an OUTLOOK CARD. Renders identically for the Potential
+   Customer and Competition Outlook sections (only the labels/data differ).
+   card = { flag, company_name, narrative_html, left:{h,v}, right:{h,v},
+            action:{h,v}|None, plan:{h,steps:[{title,body_html}]}|None }
+   --------------------------------------------------------------------------- -#}
+{% macro outlook_card(c) %}
+    <div class="prospect">
+      <span class="flag">● {{ c.flag }}</span>
+      <h2>{{ c.company_name }}</h2>
+      <p>{{ c.narrative_html | safe }}</p>
+      {% if c.left or c.right %}
+      <div class="grid2">
+        {% if c.left %}<div class="cell"><div class="h">{{ c.left.h }}</div><div class="v">{{ c.left.v }}</div></div>{% endif %}
+        {% if c.right %}<div class="cell"><div class="h">{{ c.right.h }}</div><div class="v">{{ c.right.v }}</div></div>{% endif %}
+      </div>
+      {% endif %}
+      {% if c.action and c.action.v %}
+      <div class="action"><div class="h">{{ c.action.h }}</div><div class="v">{{ c.action.v }}</div></div>
+      {% endif %}
+      {% if c.plan and c.plan.steps %}
+      <ol class="plan">
+        <div class="planh">{{ c.plan.h }}</div>
+        {% for step in c.plan.steps %}<li><b>{{ step.title }}</b> {{ step.body_html | safe }}</li>{% endfor %}
+      </ol>
+      {% endif %}
+    </div>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ brand.wordmark }} · {{ brand.issue_label }} — {{ recipient.first_name }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% raw %}<style>
+  :root{
+    --ink:#18181B;          /* Obsidian Black */
+    --clay:#AD7145;         /* Canyon Clay   */
+    --sage:#2D6A4F;         /* Deep Sage     */
+    --chalk:#F9F8F3;        /* Chalk White   */
+    --paper:#FFFFFF;
+    --outer:#E9E4D8;
+    --muted:#6C6A62;
+    --faint:#9A978C;
+    --hair:#E2DDD0;
+    --hair-dk:#33322F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--outer);
+    color:var(--ink);
+    font-family:"DM Sans",system-ui,-apple-system,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    padding:32px 16px 64px;
+  }
+  .sheet{
+    max-width:660px;
+    margin:0 auto;
+    background:var(--chalk);
+    box-shadow:0 1px 0 rgba(24,24,27,.04),0 24px 60px -28px rgba(24,24,27,.30);
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .sheet{animation:rise .6s cubic-bezier(.2,.7,.2,1) both;}
+    @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead{
+    background:var(--ink);
+    color:var(--chalk);
+    padding:26px 40px 24px;
+  }
+  .brandrow{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .brand{display:flex;align-items:center;gap:13px;}
+  .mark{flex:0 0 auto;}
+  .wordmark{
+    font-family:"DM Serif Display",Georgia,serif;
+    font-size:24px;letter-spacing:-.01em;line-height:1;color:#fff;
+  }
+  /* Brand lockup: "Coherent" in the light, "Connect" in clay — as on the logo. */
+  .wordmark .cx{color:var(--clay);}
+  .kicker{
+    font-size:10.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--clay);text-align:right;line-height:1.5;
+  }
+  .kicker small{display:block;color:var(--faint);font-weight:500;letter-spacing:.18em;}
+  .tagstrip{
+    margin-top:20px;padding-top:16px;border-top:1px solid var(--hair-dk);
+    font-family:"DM Serif Display",Georgia,serif;font-style:italic;
+    font-size:15px;color:#D8D4CA;letter-spacing:.01em;
+  }
+
+  /* ---------- Body shell ---------- */
+  .body{padding:34px 40px 8px;}
+  .datepill{
+    font-family:"DM Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--clay);margin:0 0 18px;
+  }
+  h1.hello{
+    font-family:"DM Serif Display",Georgia,serif;font-weight:400;
+    font-size:30px;line-height:1.12;letter-spacing:-.01em;margin:0 0 12px;
+  }
+  .lede{font-size:15.5px;color:#38372F;margin:0 0 12px;max-width:56ch;}
+  .lede b{color:var(--ink);font-weight:600;}
+  /* One-line product descriptor under the lede — static, every issue. */
+  .agentline{
+    font-size:17px;font-weight:600;line-height:1.4;color:var(--ink);margin:0 0 26px;
+    padding-left:13px;border-left:3px solid var(--clay);
+  }
+  .agentline b{color:var(--ink);font-weight:600;}
+  /* The brand itself carries the clay, so the eye lands on who did the work. */
+  .agentline b.cc{color:var(--clay);font-weight:700;}
+
+  /* ---------- Top-3 attention list ---------- */
+  .top3{border-top:1px solid var(--hair);margin:0 0 6px;}
+  .top3 .row{
+    display:flex;gap:14px;padding:14px 2px;border-bottom:1px solid var(--hair);
+    align-items:flex-start;
+  }
+  .top3 .idx{
+    flex:0 0 auto;width:22px;height:22px;border-radius:50%;
+    border:1.5px solid var(--clay);color:var(--clay);
+    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    margin-top:1px;font-family:"DM Mono",monospace;
+  }
+  .top3 .txt{font-size:14.5px;color:#2C2B25;}
+  .top3 .txt b{color:var(--ink);font-weight:600;}
+  .top3 .cat{
+    display:inline-block;font-family:"DM Mono",monospace;font-size:9.5px;font-weight:500;
+    letter-spacing:.11em;text-transform:uppercase;color:var(--clay);
+    border:1px solid var(--hair);border-radius:3px;padding:2px 7px;margin-right:9px;
+    vertical-align:2px;white-space:nowrap;
+  }
+
+  /* ---------- Section eyebrow ---------- */
+  .eyebrow{
+    display:flex;align-items:center;gap:12px;
+    margin:44px 0 18px;
+  }
+  .eyebrow .lbl{
+    font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--clay);
+    white-space:nowrap;
+  }
+  .eyebrow .rule{height:1px;background:var(--hair);flex:1;}
+
+  /* ---------- Provenance chip ---------- */
+  .prov{
+    display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint);margin-top:10px;
+  }
+  .prov .src{color:var(--clay);font-weight:500;}
+  .prov .verified{
+    color:var(--sage);display:inline-flex;align-items:center;gap:4px;
+    padding:2px 7px;border:1px solid rgba(45,106,79,.35);border-radius:999px;
+    background:rgba(45,106,79,.06);letter-spacing:.1em;
+  }
+  .prov .dot{width:3px;height:3px;border-radius:50%;background:var(--faint);}
+
+  /* ---------- Prospect card ---------- */
+  .prospect{
+    background:var(--paper);border:1px solid var(--hair);
+    border-left:3px solid var(--clay);
+    padding:24px 26px;
+  }
+  /* Two prospect cards stack in one section — keep them visibly separate. */
+  .prospect + .prospect{margin-top:20px;}
+  .flag{
+    display:inline-block;font-family:"DM Mono",monospace;font-size:10px;font-weight:500;
+    letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--clay);
+    padding:4px 9px;border-radius:3px;margin-bottom:14px;
+  }
+  .prospect h2{
+    font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:27px;
+    margin:0 0 10px;letter-spacing:-.01em;
+  }
+  .prospect p{font-size:14.5px;color:#33322B;margin:0 0 16px;}
+  .grid2{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);
+    border:1px solid var(--hair);margin:18px 0;
+  }
+  .grid2 .cell{background:var(--paper);padding:13px 15px;}
+  .grid2 .cell .h{
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--clay);margin-bottom:5px;
+  }
+  .grid2 .cell .v{font-size:13.5px;color:var(--ink);line-height:1.45;}
+  .action{
+    background:rgba(45,106,79,.055);border:1px solid rgba(45,106,79,.18);
+    padding:14px 16px;margin:4px 0 20px;
+  }
+  .action .h{
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--sage);margin-bottom:5px;
+  }
+  .action .v{font-size:13.5px;color:#26332C;}
+  /* Standalone action-plan panel (Industry Outlook) — same card frame as .prospect. */
+  .planbox{
+    background:var(--paper);border:1px solid var(--hair);border-left:3px solid var(--clay);
+    padding:22px 26px 8px;margin:6px 0 0;
+  }
+  .plan{margin:0;padding:0;list-style:none;counter-reset:step;}
+  .plan .planh{
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--clay);margin-bottom:12px;
+  }
+  .plan li{
+    counter-increment:step;position:relative;padding:0 0 14px 40px;font-size:13.5px;color:#33322B;
+  }
+  .plan li::before{
+    content:counter(step);position:absolute;left:0;top:-2px;
+    width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--chalk);
+    font-family:"DM Mono",monospace;font-size:12px;font-weight:500;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .plan li b{color:var(--ink);font-weight:600;}
+
+  /* ---------- Story items ---------- */
+  .story{padding:6px 0 20px;border-bottom:1px solid var(--hair);margin-bottom:20px;}
+  .story:last-of-type{border-bottom:none;}
+  .story h3{
+    font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:20px;
+    line-height:1.22;margin:0 0 9px;letter-spacing:-.005em;
+  }
+  .story p{font-size:14.5px;color:#33322B;margin:0;}
+  .story p b{color:var(--ink);font-weight:600;}
+  /* The action line under an industry story — labelled, set off from the analysis. */
+  .story p.soaction{
+    margin-top:12px;padding-left:12px;border-left:2px solid var(--clay);
+    font-size:14px;color:#2C2B25;
+  }
+  .story p.soaction .lbl{
+    display:block;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--clay);margin-bottom:4px;
+  }
+
+  /* ---------- The Coherent Take ---------- */
+  .take{
+    background:var(--ink);color:#E7E4DB;
+    padding:24px 28px;margin:8px 0 6px;position:relative;
+  }
+  .take .tag{
+    font-size:10.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--clay);margin:0 0 12px;display:flex;align-items:center;gap:9px;
+  }
+  .take .tag svg{flex:0 0 auto;}
+  .take p{font-size:14.5px;line-height:1.62;margin:0;color:#DBD7CE;}
+  .take p b{color:#fff;font-weight:600;}
+  .take .accent{color:var(--clay);font-style:italic;font-family:"DM Serif Display",serif;}
+
+  /* ---------- Per-section CTA line (closes each outlook block) ---------- */
+  .seccta{
+    margin:22px 0 0;padding:18px 20px;background:var(--paper);border:1px solid var(--hair);
+    font-size:15px;font-weight:600;color:var(--ink);text-align:center;line-height:1.5;
+  }
+  .seccta a{
+    display:inline-block;margin-left:10px;background:var(--clay);color:#fff;text-decoration:none;
+    font-weight:600;font-size:14px;letter-spacing:.02em;padding:10px 22px;border-radius:4px;
+    white-space:nowrap;
+  }
+
+  /* ---------- Inside CoherentConnect (pitch + stat panel) ----------
+     One dark rounded card. Sections stack head → stats → cards → CTA and are
+     separated by hairlines only, so nothing competes with the figures. */
+  .caps{
+    background:var(--ink);color:#E7E4DB;
+    padding:34px 34px 28px;margin:8px 0 6px;border-radius:14px;
+  }
+  .caps h3{
+    font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:25px;
+    line-height:1.25;margin:0 0 10px;color:#fff;letter-spacing:-.015em;
+  }
+  .caps h3 em{color:var(--clay);font-style:italic;}
+  .caps .capsub{font-size:13.5px;line-height:1.6;color:#A8A49A;margin:0;max-width:54ch;}
+
+  /* Stat grid — eight figures, four across, so the row reads as one panel of numbers. */
+  .capgrid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:26px 20px;
+    margin-top:28px;padding-top:28px;border-top:1px solid var(--hair-dk);
+  }
+  .cap .n{
+    font-family:"DM Serif Display",Georgia,serif;font-weight:400;
+    font-size:30px;line-height:1;color:#fff;letter-spacing:-.015em;
+  }
+  /* Unit/plus suffix rides small next to the figure: 250|M+ */
+  .cap .n .sfx{font-size:16px;letter-spacing:.01em;margin-left:1px;}
+  .cap .l{font-size:11.5px;line-height:1.4;color:#8F8B81;margin-top:9px;}
+
+  /* Pitch cards — no tile fill; the label does the separating work. */
+  .capcards{
+    display:grid;grid-template-columns:1fr 1fr;gap:26px 26px;
+    margin-top:28px;padding-top:28px;border-top:1px solid var(--hair-dk);
+  }
+  .capcard .cl{
+    font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--clay);margin-bottom:9px;
+  }
+  .capcard h4{
+    font-family:"DM Sans",sans-serif;font-weight:700;font-size:14px;line-height:1.35;
+    margin:0 0 7px;color:#fff;letter-spacing:-.01em;
+  }
+  .capcard p{font-size:12.5px;line-height:1.6;margin:0;color:#8F8B81;}
+  /* Cards now run to two or three short paragraphs — space them, don't run them together. */
+  .capcard p + p{margin-top:10px;}
+  .capcard p b{color:#C9C5BB;font-weight:600;}
+  /* Fifth card (the outcome) runs the full width under the 2×2 grid. */
+  .capcard.wide{grid-column:1 / -1;padding-top:22px;border-top:1px solid var(--hair-dk);}
+  .capcard.wide h4{font-size:16px;}
+  .capcard.wide p{max-width:60ch;}
+
+  /* ---------- Testimonials ---------- */
+  .quotes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 6px;}
+  .quote{
+    margin:0;background:var(--paper);border:1px solid var(--hair);
+    border-top:2px solid var(--clay);padding:20px 22px 18px;
+  }
+  .quote blockquote{
+    margin:0;font-family:"DM Serif Display",Georgia,serif;font-style:italic;
+    font-size:16px;line-height:1.5;color:#2C2B25;letter-spacing:-.005em;
+  }
+  /* Single attribution line — role, then company type. No invented names. */
+  .quote figcaption{
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--hair);
+    font-size:12px;line-height:1.5;color:var(--muted);
+  }
+
+  /* ---------- Footer ---------- */
+  .foot{
+    background:var(--ink);color:#CFCBC1;padding:30px 40px 34px;margin-top:40px;text-align:center;
+  }
+  .foot .fmark{margin-bottom:14px;display:flex;justify-content:center;}
+  .foot .assembled{
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 16px;
+  }
+  /* Two buttons side by side: filled demo (primary) + outlined site (secondary). */
+  .ctarow{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;}
+  .cta{
+    display:inline-block;background:var(--clay);color:#fff;text-decoration:none;
+    font-weight:600;font-size:14px;letter-spacing:.02em;padding:12px 26px;border-radius:4px;
+  }
+  .cta2{
+    display:inline-block;background:transparent;color:#E7E4DB;text-decoration:none;
+    font-weight:600;font-size:14px;letter-spacing:.02em;padding:11px 24px;border-radius:4px;
+    border:1px solid rgba(233,228,216,.28);
+  }
+  .foot .sign{
+    margin:20px 0 0;font-family:"DM Serif Display",serif;font-style:italic;font-size:14px;color:#E7E4DB;
+  }
+  .foot .meta{
+    margin:6px 0 0;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  }
+  .foot a.unsub{color:var(--faint);text-decoration:underline;}
+
+  @media (max-width:560px){
+    body{padding:16px 8px 40px;}
+    .masthead,.body,.foot{padding-left:22px;padding-right:22px;}
+    h1.hello{font-size:25px;}
+    .grid2{grid-template-columns:1fr;}
+    .prospect{padding:20px 18px;}
+    .caps{padding:26px 20px 22px;}
+    .caps h3{font-size:21px;}
+    .capgrid{grid-template-columns:1fr 1fr;gap:22px 16px;}
+    .cap .n{font-size:26px;}
+    .cap .n .sfx{font-size:15px;}
+    .capcards{grid-template-columns:1fr;gap:22px;}
+    .quotes{grid-template-columns:1fr;}
+    .seccta{font-size:14px;padding:16px;}
+    .seccta a{display:block;margin:14px 0 0;}
+  }
+</style>{% endraw %}
+</head>
+<body>
+<div class="sheet">
+
+  {# ================= MASTHEAD ================= #}
+  <header class="masthead">
+    <div class="brandrow">
+      <div class="brand">
+        {# The CoherentConnect mark, traced from cc-logo.png. The dark chevron is drawn in
+           chalk here because the masthead is ink — on white it would be #18181B. #}
+        <svg class="mark" width="38" height="38" viewBox="0 0 756 756" aria-hidden="true">
+          <polygon points="466,45 104,291 511,502 225,287" fill="#F9F8F3"/>
+          <polygon points="245,284 642,503 270,724 532,512" fill="#AD7145"/>
+        </svg>
+        <span class="wordmark">Coherent<span class="cx">Connect</span></span>
+      </div>
+      <div class="kicker">{{ brand.issue_label }}<small>Issue · {{ brand.issue_date }}</small></div>
+    </div>
+    <div class="tagstrip">{{ brand.tagline }}</div>
+  </header>
+
+  {# ================= INTRO ================= #}
+  <main class="body">
+    <p class="datepill">{{ meta.date_pill }}</p>
+    <h1 class="hello">Good morning, {{ recipient.first_name }}.</h1>
+    <p class="lede">{{ intro.lede_html | safe }}</p>
+    <p class="agentline"><b class="cc">CoherentConnect</b> is a <b>24&times;7 Autonomous AI Agentic System</b>.</p>
+
+    {# Top-3 signals — one per section, each tagged with its category. #}
+    {% if top3 %}
+    <div class="top3">
+      {% for item in top3 %}
+      <div class="row">
+        <div class="idx">{{ loop.index }}</div>
+        <div class="txt">{% if item.category %}<span class="cat">{{ item.category }}</span>{% endif %}{{ item.html | safe }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ================= 1 · POTENTIAL CUSTOMERS (two cards, one section) ================= #}
+    {% if potential_customers %}
+    <div class="eyebrow"><span class="lbl">Potential Customers</span><span class="rule"></span></div>
+    {% for c in potential_customers %}
+    {{ outlook_card(c) }}
+    {% endfor %}
+    {# ONE action plan for both cards — the process is identical for either company. #}
+    {% if customer_plan and customer_plan.steps %}
+    <div class="planbox">
+      <ol class="plan">
+        <div class="planh">{{ customer_plan.h }}</div>
+        {% for step in customer_plan.steps %}<li><b>{{ step.title }}</b> {{ step.body_html | safe }}</li>{% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+    {{ section_cta("Want these deals worked end to end — 1000+ accounts, emails sent from your inbox?", footer.cta_url) }}
+    {% endif %}
+
+    {# ================= 2 · INDUSTRY OUTLOOK ================= #}
+    {% if industry_outlook %}
+    <div class="eyebrow"><span class="lbl">Industry Outlook</span><span class="rule"></span></div>
+    {% for story in industry_outlook %}
+    <div class="story">
+      <h3>{{ story.headline }}</h3>
+      <p>{{ story.body_html | safe }}</p>
+      {# The move to make, split off from the description of the shift itself. #}
+      {% if story.action_html %}
+      <p class="soaction"><span class="lbl">{{ story.action_label | default('The move') }}</span>{{ story.action_html | safe }}</p>
+      {% endif %}
+      <div class="prov">
+        <span class="src">{{ story.source }}</span>
+        <span class="dot"></span>
+        <span>{{ story.date }}</span>
+        {% if story.verified %}<span class="verified">✓ Source-traced</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {# Same fixed CoherentConnect action plan as the prospect cards, in its own panel. #}
+    {% if industry_plan and industry_plan.steps %}
+    <div class="planbox">
+      <ol class="plan">
+        <div class="planh">{{ industry_plan.h }}</div>
+        {% for step in industry_plan.steps %}<li><b>{{ step.title }}</b> {{ step.body_html | safe }}</li>{% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+    {{ section_cta("Want every shift turned into a mapped target list while it's still news?", footer.cta_url) }}
+    {% endif %}
+
+    {# Competition Outlook intentionally removed — the brief is two customers + industry. #}
+
+    {# ================= INSIDE COHERENTCONNECT =================
+       STATIC product pitch — same copy every issue, no LLM slots, nothing to pass in.
+       The figures (20,000+ sources / 40 countries / 250M+ contacts / 5,000 leads /
+       seven-way email checks) are approved marketing claims about the full
+       CoherentConnect platform, NOT about this repo's brief pipeline. Change them
+       only alongside marketing. #}
+    <div class="eyebrow"><span class="lbl">Inside CoherentConnect</span><span class="rule"></span></div>
+
+    <div class="caps">
+      <h3>You don't need more salespeople. You need a <em>CoherentConnect</em>.</h3>
+      <p class="capsub">Finding companies, checking them, writing the emails, sending them, tracking replies — it all happened while you slept. And you can see where every fact came from.</p>
+
+      {# Eight figures, read left to right in three beats: what it watches, what it does,
+         what it costs and returns. Each card below has at least one number up here. #}
+      <div class="capgrid">
+        <div class="cap">
+          <div class="n">20,000<span class="sfx">+</span></div>
+          <div class="l">Live sources swept nightly</div>
+        </div>
+        <div class="cap">
+          <div class="n">50<span class="sfx">+</span></div>
+          <div class="l">Countries in scope</div>
+        </div>
+        <div class="cap">
+          <div class="n">250<span class="sfx">M+</span></div>
+          <div class="l">Contacts in the graph</div>
+        </div>
+        <div class="cap">
+          <div class="n">&lt;&nbsp;24<span class="sfx">&nbsp;Hours</span></div>
+          <div class="l">From trigger to email in their inbox</div>
+        </div>
+        <div class="cap">
+          <div class="n">~10,000</div>
+          <div class="l">Leads surfaced per run</div>
+        </div>
+        <div class="cap">
+          <div class="n">100<span class="sfx">%</span></div>
+          <div class="l">Of the outreach runs unattended</div>
+        </div>
+        <div class="cap">
+          <div class="n">1/10<span class="sfx">th</span></div>
+          <div class="l">The cost of an in-house outbound team</div>
+        </div>
+        <div class="cap">
+          <div class="n">15&ndash;20</div>
+          <div class="l">Qualified interests every month</div>
+        </div>
+      </div>
+
+      <div class="capcards">
+        <div class="capcard">
+          <div class="cl">Autonomy</div>
+          <h4>Nobody in the middle. Ever.</h4>
+          <p>It finds the company, checks the contact, writes the email from <b>that company's own news</b>, sends it from your address, and follows up &mdash; start to finish, on its own. Nothing waits for a person to approve it. Your team's only job is to <b>answer the replies</b>.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Cost</div>
+          <h4>The same work at a tenth of the price</h4>
+          <p>One agent does what a small sales team does &mdash; the research, the writing, the sending, the follow-ups &mdash; at roughly <b>1/10th of the cost</b>. No training, no quitting, no extra tools. You pay less and reach more companies.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Intent</div>
+          <h4>See what buyers want, while they still want it</h4>
+          <p>A bought list only tells you a company exists. We watch your future customers directly &mdash; what they're researching, hiring for, building, and buying &mdash; so you see <b>what they want right now</b>, not what a three-month-old list guessed.</p>
+        </div>
+        <div class="capcard">
+          <div class="cl">Triggers</div>
+          <h4>The moment something happens, you're in the inbox</h4>
+          <p>A funding round, a new office, a new plant, a new rule, a big hire &mdash; each one means <b>fresh money and a fresh problem</b>. We catch it the second it happens, so your email lands while they're still deciding &mdash; not after your competitor won the deal.</p>
+        </div>
+        <div class="capcard wide">
+          <div class="cl">Outcome</div>
+          <h4>15&ndash;20 qualified interests a month, every month</h4>
+          <p>Once it's running, <b>15 to 20 qualified interests from real buyers</b> land with your team every month &mdash; from a system built to run for months, not a one-time push. Finding customers becomes <b>a number you can count on</b>.</p>
+        </div>
+      </div>
+    </div>
+
+    {# ================= TESTIMONIALS ================= #}
+    <div class="eyebrow"><span class="lbl">Testimonials</span><span class="rule"></span></div>
+    <div class="quotes">
+      <figure class="quote">
+        <blockquote>&ldquo;My team used to lose the first hour of every day working out who was worth a call. Now they just call. Meetings booked have gone up every month since we started.&rdquo;</blockquote>
+        <figcaption>VP of Sales, B2B ERP SaaS company</figcaption>
+      </figure>
+      <figure class="quote">
+        <blockquote>&ldquo;I was sceptical &mdash; another tool promising to fix pipeline. It took a month before I trusted it. It has done exactly what it said it would.&rdquo;</blockquote>
+        <figcaption>Chief Executive Officer, auto-components manufacturer</figcaption>
+      </figure>
+    </div>
+
+  </main>
+
+  {# ================= FOOTER ================= #}
+  <footer class="foot">
+    <div class="fmark">
+      <svg width="34" height="34" viewBox="0 0 756 756" aria-hidden="true">
+        <polygon points="466,45 104,291 511,502 225,287" fill="#F9F8F3"/>
+        <polygon points="245,284 642,503 270,724 532,512" fill="#AD7145"/>
+      </svg>
+    </div>
+    <p class="assembled">{{ footer.assembled_note | default('Assembled & verified by CoherentConnect') }}</p>
+    {# target=_blank on every outbound link: the studio previews this HTML in an iframe,
+       and coherentconnect.ai sends X-Frame-Options: DENY — an untargeted link would try
+       to load it in the frame and be refused. #}
+    <div class="ctarow">
+      <a class="cta" href="{{ footer.cta_url }}" target="_blank" rel="noopener noreferrer">{{ footer.cta_text | default('Book a Demo →') }}</a>
+      {% if footer.site_url %}<a class="cta2" href="{{ footer.site_url }}" target="_blank" rel="noopener noreferrer">{{ footer.site_text | default('Visit the Site →') }}</a>{% endif %}
+    </div>
+    <p class="sign">{{ footer.tagline | default(brand.tagline) }}</p>
+    <p class="meta">{{ footer.subline | default('Your autonomous sales intelligence agent') }} · <a class="unsub" href="{{ footer.unsubscribe_url }}">Unsubscribe</a></p>
+  </footer>
+
+</div>
+</body>
+</html>
