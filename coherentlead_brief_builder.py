@@ -11,6 +11,7 @@ CoherentLead's own voice (from coherentlead_brand_book_by_pomelli.pdf, page 6):
   Tone:   Professional, Precise, Authoritative, Data-driven
 """
 from __future__ import annotations
+import random
 from datetime import datetime, timezone
 
 import config
@@ -39,18 +40,25 @@ def _write_ideal_customer_card(article: Article, name: str, enr: dict, profile) 
            f" SUMMARY: {a.summary[:400]}\n")
 
     system = (
-        f"You are CoherentLead, an AI-powered B2B prospecting and sales-intelligence platform. "
+        f"You are CoherentLead, a self-serve AI-powered B2B prospecting platform: users describe "
+        f"who they sell to, CoherentLead's AI builds an ICP and surfaces matching contacts from a "
+        f"250M+ contact/company database, verifies each email through a 7-layer engine, and gives "
+        f"the user company/account intelligence — the USER then does the actual outreach; "
+        f"CoherentLead does not send outreach on its own. "
         f"{VOICE} Write an Ideal Customer brief for {name} — a company that would BUY "
-        "CoherentLead's contact-discovery, email-verification and outbound-sales tooling because "
-        "it is actively scaling its own outbound motion (new funding, a first sales hire, market "
-        "expansion, or similar). Ground every claim in the SIGNAL and FREE RESEARCH; do NOT "
-        "invent numbers. Only <b>/<i> inline HTML. No angle-bracket placeholders."
+        "CoherentLead because it is actively scaling its own outbound motion (new funding, a "
+        "first sales hire, market expansion, or similar) and needs to find and verify its own "
+        "prospects faster. Never describe CoherentLead as sending outreach, reaching prospects, "
+        "or acting 'automatically' on the user's behalf — it discovers and verifies; the user "
+        "reaches out. Ground every claim in the SIGNAL and FREE RESEARCH; do NOT invent numbers. "
+        "Only <b>/<i> inline HTML. No angle-bracket placeholders."
     )
     user = (
         f"{src}{fr}\nReturn a JSON object with keys:\n"
         f"  narrative_html — 2 to 4 sentences: what happened, figures if stated, company context "
-        f"from the free research, and why it creates a need for CoherentLead's discovery/"
-        f"verification/outreach platform right now.\n"
+        f"from the free research, and why {name}'s own sales team would need CoherentLead's "
+        f"ICP search and verification right now (never phrase it as CoherentLead acting on "
+        f"their behalf).\n"
         "     BOLDING RULE — wrap exactly two things in <b>…</b> and nothing else:\n"
         "       (a) the TRIGGER SIGNAL — the event and its figure/date as it appears in the "
         "sentence (e.g. <b>just closed a Series B</b>)\n"
@@ -75,23 +83,50 @@ def _write_ideal_customer_card(article: Article, name: str, enr: dict, profile) 
     }
 
 
+# Pool size for randomized selection: pick candidates from the top N eligible buyers by
+# score rather than always the single #1. This alone is NOT enough when one candidate is
+# a genuine score outlier (e.g. Theater at 0.914 vs. everything else at ~0.859) — with
+# only 2 picks per run it still lands in a large fraction of independent shuffles, so a
+# batch of many sends can still show it far more often than any other company. The real
+# fix is `recently_used` below: an exclusion set the CALLER (campaign.py) carries across
+# the whole batch, so a company already featured recently is skipped until it cycles out.
+_SHORTLIST_SIZE = 8
+
+
 # ── 1. IDEAL CUSTOMERS — best BUYERS of CoherentLead itself, enriched + written ───
-def build_ideal_customers(triggers: list[Article], profile, want: int = 2, log=print) -> tuple[list[dict], list[Article]]:
-    """Pick up to `want` distinct buyer companies, in composite order. Reuses
-    brief_builder.triage_triggers verbatim — 'buyer' here means a company that would
-    purchase CoherentLead (i.e. is scaling its own outbound sales), never a rival
-    prospecting/data-enrichment tool."""
+def build_ideal_customers(triggers: list[Article], profile, want: int = 2, log=print,
+                           recently_used: set[str] | None = None) -> tuple[list[dict], list[Article]]:
+    """Pick up to `want` distinct buyer companies. Reuses brief_builder.triage_triggers
+    verbatim — 'buyer' here means a company that would purchase CoherentLead (i.e. is
+    scaling its own outbound sales), never a rival prospecting/data-enrichment tool.
+
+    `recently_used` (lowercased company names) are skipped when a same-or-better-scored
+    alternative exists in the shortlist — guarantees real variety across a long batch,
+    not just per-call randomness among an unchanging top-N. Falls back to using them
+    anyway if nothing else is eligible, so a thin-news run never comes up empty."""
+    recently_used = recently_used or set()
     rel, cands = triage_triggers(triggers, profile)
-    picks: list[tuple[Article, str]] = []
+    eligible: dict[str, list[tuple[int, Article, str]]] = {"buyer": [], "other": []}
     seen: set[str] = set()
+    for i, a in enumerate(cands):
+        name = rel.get(i, ("", "other"))[0]
+        kind = rel.get(i, (None, "other"))[1]
+        if kind not in eligible or not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        eligible[kind].append((i, a, name))
+
+    picks: list[tuple[Article, str]] = []
     for kind in ("buyer", "other"):
-        for i, a in enumerate(cands):
+        if len(picks) >= want:
+            break
+        shortlist = eligible[kind][:_SHORTLIST_SIZE]  # already composite-sorted; top N only
+        fresh = [c for c in shortlist if c[2].lower() not in recently_used]
+        pool = fresh if fresh else shortlist  # exhausted the fresh pool → reuse is fine
+        random.shuffle(pool)
+        for i, a, name in pool:
             if len(picks) >= want:
                 break
-            name = rel.get(i, ("", "other"))[0]
-            if rel.get(i, (None, "other"))[1] != kind or not name or name.lower() in seen:
-                continue
-            seen.add(name.lower())
             picks.append((a, name))
     cards, arts = [], []
     for art, company in picks:
@@ -132,10 +167,15 @@ def build_editorial(customers: list[dict], profile) -> dict:
     if not lede:
         names = " and ".join(c["company_name"] for c in customers) or "today's signals"
         lede = f"Two ideal-fit prospects for your pipeline this week — {names}."
-    # Fixed closing line (matches both reference demos verbatim) — never LLM-written, so it
-    # can never duplicate a similar sentence the model already produced on its own.
-    CLOSING = " Both are exactly the profile <b>CoherentLead</b> is built to discover, verify, and reach for you automatically."
-    if not re_plain(lede).rstrip().endswith("automatically."):
+    # Fixed closing line — never LLM-written, so it can't duplicate a similar sentence the
+    # model already produced on its own. IMPORTANT: CoherentLead is a self-serve discovery/
+    # verification workspace (per coherentlead.ai) — it surfaces the ICP match and verified
+    # contacts for the USER to act on; it does not autonomously send outreach on its own.
+    # Do not reintroduce language implying CoherentLead "reaches" prospects "for you" or
+    # "automatically" without the user in the loop — that was a real bug (confirmed by the
+    # product's own site copy) carried over from CoherentConnect's fully-autonomous framing.
+    CLOSING = " Both are exactly the kind of buyer <b>CoherentLead</b>'s AI-powered ICP search and 7-layer verification are built to surface — so you can find and reach them with confidence."
+    if not re_plain(lede).rstrip().endswith("confidence."):
         lede += CLOSING
     return {"lede_html": lede}
 
@@ -146,7 +186,11 @@ def re_plain(html: str) -> str:
 
 
 # ── Assemble ─────────────────────────────────────────────────────────────────
-def build_coherentlead_brief(scored: list[Article], profile, log=print) -> tuple[dict, dict]:
+def build_coherentlead_brief(scored: list[Article], profile, log=print,
+                              recently_used: set[str] | None = None) -> tuple[dict, dict]:
+    """`recently_used` (lowercased company names) — pass a set that PERSISTS across an
+    entire campaign batch (see campaign.py) so a single high-scoring outlier story
+    doesn't dominate every recipient's brief; see build_ideal_customers for details."""
     now = datetime.now(timezone.utc)
 
     triggers = [a for a in scored if a.bucket == "trigger" and a.trigger_type]
@@ -156,7 +200,7 @@ def build_coherentlead_brief(scored: list[Article], profile, log=print) -> tuple
     pool = triggers + [a for a in industry if a not in triggers]
     pool.sort(key=lambda a: a.composite, reverse=True)
     log("  → Ideal Customers ×2: triage buyers → free-enrich → write")
-    customers, cust_arts = build_ideal_customers(pool, profile, want=2, log=log)
+    customers, cust_arts = build_ideal_customers(pool, profile, want=2, log=log, recently_used=recently_used)
 
     log("  → editorial (lede)")
     ed = build_editorial(customers, profile)

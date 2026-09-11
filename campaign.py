@@ -34,6 +34,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -155,14 +156,14 @@ def _sendgrid_suppressed(api_key: str) -> set[str]:
     return suppressed
 
 
-def _generate_brief(recipient_name: str, log) -> tuple[dict, dict]:
+def _generate_brief(recipient_name: str, log, recently_used: set[str] | None = None) -> tuple[dict, dict]:
     country = config.get_country("Global")
     profile = Profile.coherentlead_default("Global")
     profile.recipient = recipient_name
     articles = collect(profile, country)
     scored = score_all(articles, profile)
     keep = eligible(scored)
-    return build_coherentlead_brief(keep or scored, profile, log=log)
+    return build_coherentlead_brief(keep or scored, profile, log=log, recently_used=recently_used)
 
 
 def run_campaign(
@@ -195,6 +196,13 @@ def run_campaign(
 
     summary = {"sent": 0, "failed": 0, "skipped": 0, "unsubscribed": 0, "stopped": False}
 
+    # Rolling window of companies featured in the last N sends THIS batch run — passed
+    # into build_coherentlead_brief so a single high-scoring outlier story (e.g. one
+    # funding round that towers over everything else in the news cycle) doesn't end up
+    # as every recipient's #1 pick. Deque auto-evicts the oldest entry once full, so a
+    # company can be reused once it's cycled out rather than being banned forever.
+    recent_window: deque[str] = deque(maxlen=15)
+
     for c in contacts:
         if should_stop and should_stop():
             summary["stopped"] = True
@@ -223,9 +231,11 @@ def run_campaign(
             continue
 
         try:
-            brief, debug = _generate_brief(c.name, log=lambda m: None)
+            brief, debug = _generate_brief(c.name, log=lambda m: None, recently_used=set(recent_window))
             html = render.render(brief, "CoherentLead")
             send_brief.send_html(html, c.email, subject, filename_hint=f"row{c.row_num}")
+            for picked in debug.get("customers", []):
+                recent_window.append(picked["company"].lower())
             conn.execute(
                 "INSERT OR REPLACE INTO sends VALUES (?, 'sent', ?, ?)",
                 (email_l, json.dumps(debug.get("customers", [])), datetime.now(timezone.utc).isoformat()),
