@@ -9,6 +9,7 @@ campaign_state.db
 fnal files/
 Coherent Connect Database.xlsx
 Coherent Lead Database.xlsx
+CoherentLead_Campaign_Report.xlsx
 streamlit.log
 
 # Generated newsletter output — regenerable by running the pipeline, not source.
